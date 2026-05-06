@@ -111,7 +111,6 @@ Useful local targets:
 ```text
 http://localhost:8888    # DVWA lab target
 dvwa                     # internal Docker target alias
-scanme.nmap.org          # only within its published rules
 ```
 
 ## CLI Usage
