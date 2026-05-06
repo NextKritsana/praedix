@@ -1,7 +1,7 @@
 # Praedix
 
 <p align="center">
-  <img src="assets/praedix-preview.svg" alt="Praedix terminal preview" width="900">
+  <img src="assets/MJ.png" alt="Praedix preview" width="900">
 </p>
 
 Praedix is an AI-assisted security operations workspace for authorized reconnaissance, local lab testing, tool-driven web assessments, and evidence-based reporting.
