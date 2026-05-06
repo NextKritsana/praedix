@@ -1,5 +1,9 @@
 # Praedix
 
+<p align="center">
+  <img src="assets/praedix-preview.svg" alt="Praedix terminal preview" width="900">
+</p>
+
 Praedix is an AI-assisted security operations workspace for authorized reconnaissance, local lab testing, tool-driven web assessments, and evidence-based reporting.
 
 It combines a React dashboard, Flask API, isolated scanner containers, OpenRouter-powered agent orchestration, PostgreSQL scan memory, and an Obsidian-style Markdown vault for reports and knowledge.
