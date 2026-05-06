@@ -1,0 +1,25 @@
+FROM python:3.11-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ONIONCLAW_DIR=/opt/onionclaw
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git tor ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir \
+    flask \
+    requests[socks] \
+    beautifulsoup4 \
+    python-dotenv \
+    stem
+
+ARG ONIONCLAW_REPO=https://github.com/JacobJandon/OnionClaw.git
+RUN git clone --depth 1 ${ONIONCLAW_REPO} ${ONIONCLAW_DIR} \
+    || mkdir -p ${ONIONCLAW_DIR}
+
+WORKDIR /app
+COPY onionclaw_wrapper.py .
+
+EXPOSE 8002
+CMD ["sh", "-c", "tor --SocksPort 9050 --ControlPort 9051 --CookieAuthentication 0 --DataDirectory /tmp/tor_data & python onionclaw_wrapper.py"]

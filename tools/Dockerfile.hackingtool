@@ -1,0 +1,44 @@
+FROM kalilinux/kali-rolling
+
+# Avoid prompts during installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Core system tools (very stable, small)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-pip git curl whois dnsutils traceroute \
+    && rm -rf /var/lib/apt/lists/*
+
+# Main scanners (separate layer - if this fails, core still works)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    nmap dirb sslscan \
+    && rm -rf /var/lib/apt/lists/*
+
+# Heavy scanners with many deps (separate layer)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    sqlmap \
+    && rm -rf /var/lib/apt/lists/* \
+    || echo "WARNING: sqlmap install failed, skipping"
+
+# Nikto (has problematic perl deps, isolated)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    nikto \
+    && rm -rf /var/lib/apt/lists/* \
+    || echo "WARNING: nikto install failed, skipping"
+
+# Install lightweight Python tools via pip (avoids heavy Kali deps)
+RUN pip3 install --break-system-packages \
+    wafw00f
+
+# Clone hackingtool to allow the AI to explore its scripts
+RUN git clone https://github.com/Z4nzu/hackingtool.git /opt/hackingtool
+
+# Install Flask using apt to avoid PEP 668 externally-managed-environment error
+RUN apt-get update && apt-get install -y python3-flask && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/hackingtool
+
+# Python wrapper to expose tools to the AI Agent
+COPY hackingtool_wrapper.py .
+
+# Run the API server
+CMD ["python3", "hackingtool_wrapper.py"]

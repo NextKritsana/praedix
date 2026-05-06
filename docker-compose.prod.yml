@@ -1,0 +1,39 @@
+# Production overrides — use with:
+# docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+
+  nginx:
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ssl-certs:/etc/nginx/certs:ro
+    restart: always
+
+  web:
+    build:
+      args:
+        - NODE_ENV=production
+    environment:
+      - NODE_ENV=production
+    volumes: []             # no bind mount in prod — use image only
+    restart: always
+
+  ai-agent:
+    environment:
+      - ENV=production
+    restart: always
+
+  db:
+    restart: always
+    # In prod: point to managed DB (e.g. Supabase, RDS) instead
+    # Comment out this service and set DATABASE_URL externally
+
+  scan-runner:
+    restart: always
+    # Additional hardening in prod
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  queue:
+    restart: always

@@ -1,0 +1,168 @@
+services:
+  # --- Gateway ---
+  nginx:
+    image: nginx:alpine
+    container_name: praedix-gateway
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/nginx/certs:/etc/nginx/certs:ro
+    networks:
+      - public_zone
+      - internal_zone
+    restart: always
+
+  # --- Dashboard Frontend ---
+  frontend:
+    build: ./frontend
+    container_name: praedix-frontend
+    environment:
+      - VITE_API_PROXY_TARGET=http://api:5000
+    ports:
+      - "3000:3000"
+    networks:
+      - public_zone
+      - internal_zone
+    depends_on:
+      - api
+
+  # --- Dashboard API ---
+  api:
+    build: ./api
+    container_name: praedix-api
+    env_file: .env
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - AI_MODEL=${AI_MODEL}
+      - DB_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - ONIONCLAW_URL=http://onionclaw-runner:8002/run
+      - PRAEDIX_ALLOWED_SINGLE_LABEL_TARGETS=dvwa,localhost
+    volumes:
+      - ./vault:/app/vault
+    ports:
+      - "5000:5000"
+    networks:
+      - internal_zone
+      - isolated_zone
+    depends_on:
+      - db
+      - scan-runner
+      - onionclaw-runner
+
+
+  # --- AI Services (The Brain) ---
+  ai-commander:
+    build: 
+      context: .
+      dockerfile: ./agents/Dockerfile
+    container_name: praedix-commander
+    env_file: .env
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - AI_MODEL=${AI_MODEL}
+      - DB_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - REDIS_URL=${REDIS_URL}
+    volumes:
+      - ./agents:/app/agents
+      - ./vault:/app/vault
+    networks:
+      - internal_zone
+      - isolated_zone
+    depends_on:
+      - db
+      - queue
+
+  # --- Data Layer ---
+  db:
+    image: postgres:15-alpine
+    container_name: praedix-db
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - ./data/db:/var/lib/postgresql/data
+    networks:
+      - internal_zone
+
+  queue:
+    image: redis:alpine
+    container_name: praedix-queue
+    networks:
+      - internal_zone
+
+  # --- Isolated Tools (The Red Team) ---
+  scan-runner:
+    build:
+      context: ./tools
+      dockerfile: Dockerfile.hackingtool
+    container_name: praedix-scanner
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - isolated_zone
+      - public_zone
+
+  # --- Research Tools (Tor / Dark Web OSINT) ---
+  onionclaw-runner:
+    build:
+      context: ./tools
+      dockerfile: Dockerfile.onionclaw
+    container_name: praedix-onionclaw
+    environment:
+      - TOR_SOCKS_HOST=127.0.0.1
+      - TOR_SOCKS_PORT=9050
+      - TOR_CONTROL_HOST=127.0.0.1
+      - TOR_CONTROL_PORT=9051
+    ports:
+      - "8002:8002"
+    networks:
+      - isolated_zone
+    security_opt:
+      - no-new-privileges:true
+
+  # --- Practice Target (Vulnerable Web App) ---
+  dvwa:
+    image: vulnerables/web-dvwa
+    container_name: praedix-dvwa
+    ports:
+      - "8888:80"
+    environment:
+      - MYSQL_HOST=dvwa-db
+      - MYSQL_USER=dvwa
+      - MYSQL_PASSWORD=dvwa
+      - MYSQL_DATABASE=dvwa
+    depends_on:
+      - dvwa-db
+    networks:
+      - isolated_zone
+
+  dvwa-db:
+    image: mysql:5.7
+    container_name: praedix-dvwa-db
+    environment:
+      - MYSQL_ROOT_PASSWORD=dvwa
+      - MYSQL_USER=dvwa
+      - MYSQL_PASSWORD=dvwa
+      - MYSQL_DATABASE=dvwa
+    volumes:
+      - dvwa-data:/var/lib/mysql
+    networks:
+      - isolated_zone
+
+networks:
+  public_zone:
+    driver: bridge
+  internal_zone:
+    driver: bridge
+    internal: true
+  isolated_zone:
+    driver: bridge
+
+volumes:
+  dvwa-data:
