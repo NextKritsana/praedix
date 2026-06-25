@@ -65,6 +65,7 @@ def init_db():
         target_id INTEGER REFERENCES targets(id),
         target TEXT NOT NULL,
         stream_type TEXT NOT NULL DEFAULT 'local_vm',
+        scan_profile TEXT NOT NULL DEFAULT 'standard',
         workflow_status TEXT NOT NULL DEFAULT 'queued',
         research_scope JSONB NOT NULL DEFAULT '{}'::jsonb,
         scope_approved BOOLEAN NOT NULL DEFAULT FALSE,
@@ -142,9 +143,11 @@ def init_db():
         with conn.cursor() as cur:
             cur.execute(schema)
             cur.execute("ALTER TABLE scans ADD COLUMN IF NOT EXISTS stream_type TEXT NOT NULL DEFAULT 'local_vm'")
+            cur.execute("ALTER TABLE scans ADD COLUMN IF NOT EXISTS scan_profile TEXT NOT NULL DEFAULT 'standard'")
             cur.execute("ALTER TABLE scans ADD COLUMN IF NOT EXISTS workflow_status TEXT NOT NULL DEFAULT 'queued'")
             cur.execute("ALTER TABLE scans ADD COLUMN IF NOT EXISTS research_scope JSONB NOT NULL DEFAULT '{}'::jsonb")
             cur.execute("ALTER TABLE scans ADD COLUMN IF NOT EXISTS scope_approved BOOLEAN NOT NULL DEFAULT FALSE")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_scans_scan_profile ON scans(scan_profile)")
     return True
 
 
@@ -177,14 +180,15 @@ def create_scan(scan):
             cur.execute(
                 """
                 INSERT INTO scans (
-                    id, target_id, target, stream_type, workflow_status,
+                    id, target_id, target, stream_type, scan_profile, workflow_status,
                     research_scope, scope_approved, status, current_step,
                     max_steps, kb_loaded, started_at, updated_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
                 ON CONFLICT (id)
                 DO UPDATE SET
                     stream_type = EXCLUDED.stream_type,
+                    scan_profile = EXCLUDED.scan_profile,
                     workflow_status = EXCLUDED.workflow_status,
                     research_scope = EXCLUDED.research_scope,
                     scope_approved = EXCLUDED.scope_approved,
@@ -199,6 +203,7 @@ def create_scan(scan):
                     target_id,
                     scan["target"],
                     scan.get("stream_type", "local_vm"),
+                    scan.get("scan_profile", "standard"),
                     scan.get("workflow_status", "queued"),
                     Json(scan.get("research_scope", {})) if Json else json.dumps(scan.get("research_scope", {})),
                     scan.get("scope_approved", False),
@@ -218,6 +223,7 @@ def update_scan(scan_id, **fields):
     allowed = {
         "status",
         "stream_type",
+        "scan_profile",
         "workflow_status",
         "research_scope",
         "scope_approved",
@@ -426,6 +432,7 @@ def _format_scan(row, include_steps=True):
         "id": row["id"],
         "target": row["target"],
         "stream_type": row.get("stream_type", "local_vm"),
+        "scan_profile": row.get("scan_profile", "standard"),
         "workflow_status": row.get("workflow_status", "queued"),
         "research_scope": row.get("research_scope", {}),
         "scope_approved": row.get("scope_approved", False),

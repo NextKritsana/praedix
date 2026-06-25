@@ -2,6 +2,17 @@ import { useState } from 'react'
 
 const TOOL_CATEGORIES = [
   {
+    name: 'Modern Web Recon',
+    color: '#a855f7',
+    tools: [
+      { id: 'subfinder', name: 'Subfinder', desc: 'Discover subdomains for public root domains', template: 'subfinder -d {target} -silent' },
+      { id: 'httpx', name: 'httpx', desc: 'Probe live web service, title, status, and tech stack', template: 'httpx -u https://{target} -status-code -title -tech-detect -follow-redirects' },
+      { id: 'katana', name: 'Katana', desc: 'Crawl pages, scripts, and endpoints', template: 'katana -u https://{target} -silent -depth 2 -jc' },
+      { id: 'ffuf', name: 'ffuf', desc: 'Controlled content discovery with common paths', template: 'ffuf -u https://{target}/FUZZ -w /usr/share/wordlists/dirb/common.txt -mc all -fc 404 -t 20 -rate 50' },
+      { id: 'nuclei', name: 'Nuclei', desc: 'Template-based vulnerability checks with rate limiting', template: 'nuclei -u https://{target} -severity low,medium,high,critical -exclude-tags intrusive,dos -rl 10 -no-color' },
+    ]
+  },
+  {
     name: '🔍 Reconnaissance',
     color: '#06b6d4',
     tools: [

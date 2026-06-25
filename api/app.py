@@ -23,7 +23,11 @@ client = OpenAI(
     api_key=os.getenv("OPENROUTER_API_KEY"),
 )
 
-ALLOWED_TOOLS = ["nmap", "sqlmap", "nikto", "dirb", "whois"]
+ALLOWED_TOOLS = [
+    "nmap", "sqlmap", "nikto", "dirb", "whois", "dig", "wafw00f",
+    "traceroute", "sslscan", "curl", "nuclei", "httpx", "katana",
+    "ffuf", "subfinder",
+]
 VAULT_PATH = "/app/vault"
 SCANNER_URL = "http://scan-runner:8001/run"
 ONIONCLAW_URL = os.getenv("ONIONCLAW_URL", "http://onionclaw-runner:8002/run")
@@ -46,6 +50,21 @@ STREAM_TYPES = {
         "start_workflow": "research_target_queued",
         "scan_workflow": "recon_and_triage",
         "done_workflow": "awaiting_human_review",
+    },
+}
+
+SCAN_PROFILES = {
+    "standard": {
+        "label": "Standard Audit",
+        "max_steps": 15,
+        "workflow_suffix": "",
+        "description": "Balanced recon, web checks, and evidence-backed reporting.",
+    },
+    "web_deep": {
+        "label": "Web App Deep Scan",
+        "max_steps": 24,
+        "workflow_suffix": "_web_deep",
+        "description": "Deeper web app recon using subfinder, httpx, katana, ffuf, and nuclei.",
     },
 }
 
@@ -358,6 +377,8 @@ def run_scan_thread(scan_id, target):
     scan = scans[scan_id]
     stream_type = scan.get("stream_type", "local_vm")
     stream_config = STREAM_TYPES.get(stream_type, STREAM_TYPES["local_vm"])
+    scan_profile = scan.get("scan_profile", "standard")
+    profile_config = SCAN_PROFILES.get(scan_profile, SCAN_PROFILES["standard"])
     research_scope = scan.get("research_scope", {})
     scan["status"] = "loading_kb"
     scan["workflow_status"] = "loading_knowledge"
@@ -378,13 +399,14 @@ def run_scan_thread(scan_id, target):
     if os.path.exists(kb_path):
         kb_files = sorted([f for f in os.listdir(kb_path) if f.endswith('.md')])
     scan["kb_loaded"] = len(kb_files)
+    scan["max_steps"] = profile_config["max_steps"]
     if stream_type == "research":
         estimated_osint_steps = 0
         if research_scope.get("enable_dark_web"):
             estimated_osint_steps = 1 + min(len(research_scope.get("allowed_keywords", []) or [target]), 5)
-        scan["max_steps"] = 15 + estimated_osint_steps
+        scan["max_steps"] = profile_config["max_steps"] + estimated_osint_steps
     scan["status"] = "scanning"
-    scan["workflow_status"] = stream_config["scan_workflow"]
+    scan["workflow_status"] = stream_config["scan_workflow"] + profile_config["workflow_suffix"]
     persist(
         db.update_scan,
         scan_id,
@@ -428,6 +450,25 @@ WORKFLOW STREAM: Vulnerability Research
 WORKFLOW STREAM: Local VM Testing
 - Prioritize local/VM web application testing, OWASP Top 10 coverage, and pre-deploy remediation.
 - Treat the output as a pre-deploy report for developers before production release."""
+
+    if scan_profile == "web_deep":
+        profile_section = f"""
+
+SCAN PROFILE: Web App Deep Scan
+- Use the modern web recon tools before writing the final report when the target exposes HTTP/HTTPS.
+- For public root domains, run subdomain discovery with: subfinder -d {target} -silent
+- Probe live web services with direct URLs, for example: httpx -u http://{target} -status-code -title -tech-detect -follow-redirects
+- Crawl reachable web apps with: katana -u http://{target} -silent -depth 2 -jc
+- Discover common paths with a controlled wordlist run: ffuf -u http://{target}/FUZZ -w /usr/share/wordlists/dirb/common.txt -mc all -fc 404 -t 20 -rate 50
+- Run nuclei safely with rate limiting: nuclei -u http://{target} -severity low,medium,high,critical -exclude-tags intrusive,dos -rl 10 -no-color
+- Do not use shell pipes, redirects, command substitution, or chained commands. Run one executable command at a time.
+- Prefer non-intrusive checks and avoid destructive exploitation. Escalate severity only when tool output provides direct evidence.
+- In the final report, map confirmed findings to OWASP Top 10 and, where relevant, MITRE ATT&CK techniques from the knowledge base."""
+    else:
+        profile_section = """
+
+SCAN PROFILE: Standard Audit
+- Use a balanced scan path. Prefer fast, high-signal checks and write a concise evidence-backed report once enough coverage is collected."""
     
     system_prompt = f"""You are an AGGRESSIVE penetration tester from Praedix AI Security Firm.
 Your mission: Find ALL vulnerabilities on {target}. Leave no stone unturned.
@@ -448,6 +489,13 @@ AVAILABLE TOOLS AND WHEN TO USE THEM:
 - dirb http://{target} -r                  → Directory brute-force (non-recursive)
 - curl -I http://{target}                  → HTTP response headers
 - curl -s http://{target}                  → Page content/source code
+
+[MODERN WEB APP RECON / DAST]
+- subfinder -d {target} -silent            -> Discover subdomains for public root domains
+- httpx -u http://{target} -status-code -title -tech-detect -follow-redirects  -> Probe live HTTP services and detect technologies
+- katana -u http://{target} -silent -depth 2 -jc  -> Crawl pages, links, scripts, and endpoints
+- ffuf -u http://{target}/FUZZ -w /usr/share/wordlists/dirb/common.txt -mc all -fc 404 -t 20 -rate 50  -> Controlled content discovery
+- nuclei -u http://{target} -severity low,medium,high,critical -exclude-tags intrusive,dos -rl 10 -no-color  -> Template-based vulnerability checks
 
 [CRYPTO / SSL]
 - sslscan {target}                         → SSL/TLS cipher analysis
@@ -486,14 +534,14 @@ STRICT EVIDENCE RULES:
 
 RESPONSE FORMAT - respond with ONLY a valid JSON object:
 To run a tool: {{"action": "tool", "command": "nmap -F {target}"}}
-Final report:  {{"action": "report", "content": "Your detailed findings..."}}{stream_section}{kb_section}"""
+Final report:  {{"action": "report", "content": "Your detailed findings..."}}{stream_section}{profile_section}{kb_section}"""
 
     history = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": f"Begin the FULL security audit on {target}. Start with nmap -F. Respond with JSON only."}
     ]
 
-    max_steps = 15
+    max_steps = scan.get("max_steps", profile_config["max_steps"])
     for step in range(max_steps):
         scan["current_step"] = len(scan["steps"]) + 1
         persist(db.update_scan, scan_id, current_step=scan["current_step"])
@@ -670,6 +718,10 @@ def start_scan():
     if stream_type not in STREAM_TYPES:
         return jsonify({"error": "Invalid stream_type"}), 400
 
+    scan_profile = data.get("scan_profile", "standard")
+    if scan_profile not in SCAN_PROFILES:
+        return jsonify({"error": "Invalid scan_profile"}), 400
+
     research_scope = normalize_research_scope(target, data.get("research_scope"))
     if stream_type == "research":
         scope_error = validate_research_scope(target, research_scope)
@@ -681,12 +733,13 @@ def start_scan():
         "id": scan_id,
         "target": target,
         "stream_type": stream_type,
+        "scan_profile": scan_profile,
         "workflow_status": STREAM_TYPES[stream_type]["start_workflow"],
         "research_scope": research_scope if stream_type == "research" else {},
         "scope_approved": bool(research_scope.get("approved")) if stream_type == "research" else False,
         "status": "starting",
         "current_step": 0,
-        "max_steps": 15,
+        "max_steps": SCAN_PROFILES[scan_profile]["max_steps"],
         "steps": [],
         "report": None,
         "report_file": None,

@@ -34,8 +34,8 @@ services:
     container_name: praedix-api
     env_file: .env
     environment:
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - AI_MODEL=${AI_MODEL}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-${LLM_API_KEY:-}}
+      - AI_MODEL=${AI_MODEL:-${LLM_MODEL:-openrouter/auto}}
       - DB_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       - ONIONCLAW_URL=http://onionclaw-runner:8002/run
       - PRAEDIX_ALLOWED_SINGLE_LABEL_TARGETS=dvwa,localhost
@@ -60,8 +60,8 @@ services:
     container_name: praedix-commander
     env_file: .env
     environment:
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - AI_MODEL=${AI_MODEL}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-${LLM_API_KEY:-}}
+      - AI_MODEL=${AI_MODEL:-${LLM_MODEL:-openrouter/auto}}
       - DB_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       - REDIS_URL=${REDIS_URL}
     volumes:

@@ -25,15 +25,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     || echo "WARNING: nikto install failed, skipping"
 
+# Modern web recon / DAST tools used by the Web App Deep Scan profile.
+# Kali packages are preferred because they build much faster than go install.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates golang-go nuclei ffuf subfinder httpx-toolkit \
+    && ln -sf /usr/bin/httpx-toolkit /usr/local/bin/httpx \
+    && rm -rf /var/lib/apt/lists/* \
+    || echo "WARNING: modern web scanner package install failed, skipping optional tools"
+
+ENV GOPATH=/root/go
+ENV PATH="/root/go/bin:${PATH}"
+
+RUN timeout 420s go install github.com/projectdiscovery/katana/cmd/katana@latest \
+    && ln -sf /root/go/bin/katana /usr/local/bin/katana \
+    || echo "WARNING: katana install failed or timed out, skipping optional crawler"
+
 # Install lightweight Python tools via pip (avoids heavy Kali deps)
 RUN pip3 install --break-system-packages \
-    wafw00f
+    wafw00f \
+    flask
 
 # Clone hackingtool to allow the AI to explore its scripts
 RUN git clone https://github.com/Z4nzu/hackingtool.git /opt/hackingtool
-
-# Install Flask using apt to avoid PEP 668 externally-managed-environment error
-RUN apt-get update && apt-get install -y python3-flask && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/hackingtool
 

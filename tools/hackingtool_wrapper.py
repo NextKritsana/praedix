@@ -13,6 +13,8 @@ ALLOWED_TOOLS = [
     "dig", "wafw00f", "traceroute",
     # Web/Network Analysis
     "sslscan", "curl",
+    # Modern Web Recon / DAST
+    "nuclei", "httpx", "katana", "ffuf", "subfinder",
 ]
 
 # Per-tool timeout (seconds)
@@ -31,6 +33,11 @@ TOOL_TIMEOUTS = {
     "sslscan":      120,
     "wapiti":       300,
     "curl":         30,
+    "nuclei":       420,
+    "httpx":        180,
+    "katana":       240,
+    "ffuf":         300,
+    "subfinder":    240,
 }
 
 @app.route('/run', methods=['POST'])

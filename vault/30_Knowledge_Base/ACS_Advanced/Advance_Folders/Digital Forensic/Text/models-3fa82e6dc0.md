@@ -1,0 +1,78 @@
+---
+title: "models"
+type: "acs-advance-text"
+course: "ACS Advanced"
+course_folder: "Digital Forensic"
+source_path: "E:\\ProJect\\ACS File\\advance\\Digital Forensic\\Project Digital Forensic  Copy\\integration-forenchain-backend-main\\models.py"
+source_size_bytes: 2461
+source_modified: 2025-11-30T18:40:20
+imported_at: 2026-06-14T14:25:25
+tags:
+  - acs
+  - acs-advanced
+  - imported
+---
+
+# models
+
+- Source: [models.py](file:///E:/ProJect/ACS%20File/advance/Digital%20Forensic/Project%20Digital%20Forensic%20%20Copy/integration-forenchain-backend-main/models.py)
+
+## Content
+
+```py
+# /models.py (ฉบับแก้ไขที่ถูกต้อง)
+from sqlalchemy import Column, String, DateTime, Enum, JSON, ForeignKey, func, Boolean
+from sqlalchemy.orm import relationship
+from database import Base
+import schemas # (ใช้ Enum จาก schemas.py)
+import uuid
+from datetime import datetime
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    username = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    is_active = Column(Boolean, default=True)
+    createdAt = Column(DateTime, default=datetime.utcnow)
+
+class Case(Base):
+    __tablename__ = "cases"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    caseName = Column(String, index=True, nullable=False) # [cite: 88-89]
+    description = Column(String, nullable=True) # 
+    status = Column(Enum(schemas.CaseStatus), default=schemas.CaseStatus.PENDING) # 
+    createdAt = Column(DateTime, default=datetime.utcnow) # 
+    updatedAt = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow) # 
+
+    # Relationships
+    evidence = relationship("Evidence", back_populates="case", cascade="all, delete-orphan")
+    analysisResults = relationship("AnalysisResult", back_populates="case", cascade="all, delete-orphan")
+
+class Evidence(Base):
+    __tablename__ = "evidence"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    fileName = Column(String, nullable=False) # 
+    fileType = Column(String, nullable=False) # 
+    sha256Hash = Column(String, nullable=True) # 
+    blockchainTxHash = Column(String, nullable=True) # 
+    uploadedAt = Column(DateTime, default=datetime.utcnow) # 
+    
+    case_id = Column(String, ForeignKey("cases.id")) # 
+    case = relationship("Case", back_populates="evidence")
+
+class AnalysisResult(Base):
+    __tablename__ = "analysis_results"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    source = Column(String, nullable=False)
+    finding = Column(String)
+    result = Column(JSON)
+    summary = Column(String)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    
+    case_id = Column(String, ForeignKey("cases.id"))
+    case = relationship("Case", back_populates="analysisResults")
+    
+    # ADD THIS MISSING COLUMN
+    analysis_type = Column(String, default="VIRUSTOTAL")  # ← Add this line
+```

@@ -56,7 +56,7 @@ export default function Dashboard() {
                   Step {scan.current_step}/{scan.max_steps}
                 </span>
                 <span style={{ color: 'var(--text-muted)', marginLeft: '12px', fontSize: '12px', textTransform: 'uppercase' }}>
-                  {scan.stream_type || 'local_vm'} / {scan.workflow_status || 'queued'}
+                  {scan.stream_type || 'local_vm'} / {scan.scan_profile || 'standard'} / {scan.workflow_status || 'queued'}
                 </span>
               </div>
               <div className="spinner"></div>

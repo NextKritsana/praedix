@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 export default function NewScan() {
   const [target, setTarget] = useState('')
   const [streamType, setStreamType] = useState('local_vm')
+  const [scanProfile, setScanProfile] = useState('standard')
   const [researchScope, setResearchScope] = useState({
     enable_dark_web: false,
     client: '',
@@ -28,7 +29,7 @@ export default function NewScan() {
     setExpandedStep(null)
 
     try {
-      const body = { target: target.trim(), stream_type: streamType }
+      const body = { target: target.trim(), stream_type: streamType, scan_profile: scanProfile }
       if (streamType === 'research') {
         body.research_scope = {
           ...researchScope,
@@ -94,6 +95,21 @@ export default function NewScan() {
     },
   ]
 
+  const profileOptions = [
+    {
+      id: 'standard',
+      name: 'Standard Audit',
+      desc: 'Balanced scan path for quick evidence-backed checks',
+      color: '#06b6d4',
+    },
+    {
+      id: 'web_deep',
+      name: 'Web App Deep Scan',
+      desc: 'Adds subfinder, httpx, katana, ffuf, and nuclei',
+      color: '#f97316',
+    },
+  ]
+
   const getStepIcon = (step) => {
     if (step.status === 'running') return '⏳'
     if (step.exit_code === 0) return '✅'
@@ -109,6 +125,11 @@ export default function NewScan() {
       dirb: '#eab308',
       sqlmap: '#ef4444',
       whois: '#3b82f6',
+      subfinder: '#14b8a6',
+      httpx: '#22c55e',
+      katana: '#a855f7',
+      ffuf: '#f59e0b',
+      nuclei: '#f43f5e',
     }
     return { name: tool, color: colors[tool] || '#94a3b8' }
   }
@@ -142,6 +163,35 @@ export default function NewScan() {
                 key={option.id}
                 type="button"
                 onClick={() => setStreamType(option.id)}
+                disabled={scanning}
+                style={{
+                  textAlign: 'left',
+                  cursor: scanning ? 'not-allowed' : 'pointer',
+                  border: `1px solid ${selected ? option.color : 'var(--border)'}`,
+                  background: selected ? `${option.color}18` : 'var(--bg-primary)',
+                  color: 'var(--text-primary)',
+                  borderRadius: '8px',
+                  padding: '12px 14px',
+                }}
+              >
+                <div style={{ fontWeight: 700, color: option.color, marginBottom: '4px' }}>{option.name}</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.4 }}>{option.desc}</div>
+              </button>
+            )
+          })}
+        </div>
+
+        <label style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '10px', display: 'block' }}>
+          Scan profile
+        </label>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', marginBottom: '18px' }}>
+          {profileOptions.map(option => {
+            const selected = scanProfile === option.id
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setScanProfile(option.id)}
                 disabled={scanning}
                 style={{
                   textAlign: 'left',
@@ -269,6 +319,9 @@ export default function NewScan() {
               <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>{scanData.target}</span>
               <span style={{ marginLeft: '16px', fontSize: '12px', color: 'var(--text-secondary)', background: 'var(--bg-primary)', padding: '3px 10px', borderRadius: '12px', textTransform: 'uppercase' }}>
                 {scanData.stream_type || 'local_vm'}
+              </span>
+              <span style={{ marginLeft: '8px', fontSize: '12px', color: '#f97316', background: 'rgba(249,115,22,0.1)', padding: '3px 10px', borderRadius: '12px', textTransform: 'uppercase' }}>
+                {scanData.scan_profile || 'standard'}
               </span>
               <span style={{ marginLeft: '8px', fontSize: '12px', color: 'var(--accent)', background: 'rgba(6,182,212,0.1)', padding: '3px 10px', borderRadius: '12px' }}>
                 {scanData.workflow_status || 'queued'}

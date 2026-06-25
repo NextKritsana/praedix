@@ -208,7 +208,7 @@ def print_status(api: str, colors: bool = True, banner_path: str | None = DEFAUL
 
 
 def build_scan_body(args: argparse.Namespace, target: str) -> dict[str, Any]:
-    body: dict[str, Any] = {"target": target, "stream_type": args.stream}
+    body: dict[str, Any] = {"target": target, "stream_type": args.stream, "scan_profile": args.profile}
     if args.stream == "research":
         keywords = parse_csv(args.keywords) or [target]
         scope = {
@@ -317,6 +317,7 @@ def run_scan(args: argparse.Namespace, api: str, colors: bool) -> int:
                 ("Target sent to API", target),
                 ("API", api),
                 ("Stream", args.stream),
+                ("Profile", args.profile),
                 ("Dark web / OSINT", "enabled" if args.dark_web else "disabled"),
                 ("Verbose", "yes" if args.verbose else "no"),
             ],
@@ -343,6 +344,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("-u", "--url", help="Target domain, IP, Docker service, or URL.")
     parser.add_argument("--api", default=DEFAULT_API, help=f"Praedix API base URL. Default: {DEFAULT_API}")
     parser.add_argument("--stream", choices=["local_vm", "research"], default="local_vm", help="Workflow stream.")
+    parser.add_argument("--profile", choices=["standard", "web_deep"], default="standard", help="Scan profile.")
     parser.add_argument("--status", action="store_true", help="Show Praedix service status and exit.")
     parser.add_argument("--dark-web", action="store_true", help="Enable OnionClaw dark web / OSINT research.")
     parser.add_argument("--client", help="Client or engagement name for research scans.")
